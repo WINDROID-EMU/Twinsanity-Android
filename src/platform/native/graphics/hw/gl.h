@@ -61,6 +61,7 @@ struct Gl
     void (*ReadPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void*);
     void (*ReadBuffer)(GLenum);
     void (*DrawBuffer)(GLenum);
+    void (*DrawBuffers)(GLsizei, const GLenum*);
     void (*Viewport)(GLint, GLint, GLsizei, GLsizei);
     void (*Scissor)(GLint, GLint, GLsizei, GLsizei);
     void (*Enable)(GLenum);

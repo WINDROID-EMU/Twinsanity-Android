@@ -1684,12 +1684,22 @@ void StopFilteredObjectNodes(ChunkManager*, const u32* filter)
                            InstanceCollector::BothPools);
         for (walk.First(); !walk.AtEnd(); walk.Next())
         {
-            auto* node = static_cast<ObjectNodeBase*>(GetGameNode(&(*walk.Item())->nodes, NodeObject));
-            if (node != nullptr)
+            auto** item = walk.Item();
+            if (item == nullptr || *item == nullptr)
             {
-                CallVirtual<void>(node, node->vtable, ObjectNode::ReleasePartsSlot);
-                CallVirtual<void>(node, node->vtable, ObjectNode::DoNothingSlot);
-                CallVirtual<void>(node, node->vtable, ObjectNode::StopRunnersSlot, u32{1});
+                continue;
+            }
+
+            auto* node = static_cast<ObjectNodeBase*>(GetGameNode(&(*item)->nodes, NodeObject));
+            if (node != nullptr && node->vtable != nullptr)
+            {
+                uintptr_t vt = reinterpret_cast<uintptr_t>(node->vtable);
+                if (vt > 0x10000 && (vt >> 48) == 0)
+                {
+                    CallVirtual<void>(node, node->vtable, ObjectNode::ReleasePartsSlot);
+                    CallVirtual<void>(node, node->vtable, ObjectNode::DoNothingSlot);
+                    CallVirtual<void>(node, node->vtable, ObjectNode::StopRunnersSlot, u32{1});
+                }
             }
         }
 

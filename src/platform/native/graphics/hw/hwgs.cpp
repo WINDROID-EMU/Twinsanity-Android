@@ -32,6 +32,7 @@
 
 #include "gl.h"
 #include "replace.h"
+#include "platform/native/native.h"
 
 #define XXH_INLINE_ALL
 #include "xxhash.h"
@@ -1120,7 +1121,18 @@ GLuint CompileShader(GLenum kind, const std::string& source)
     size_t pos = adapted.find("#version 330 core");
     if (pos != std::string::npos)
     {
-        adapted.replace(pos, 17, "#version 300 es\nprecision highp float;\nprecision highp int;");
+        std::string esHeader = "#version 300 es\n"
+                               "#extension GL_EXT_blend_func_extended : enable\n"
+                               "#extension GL_NV_shader_noperspective_interpolation : enable\n"
+                               "#extension GL_EXT_shader_noperspective_interpolation : enable\n"
+                               "#ifndef GL_NV_shader_noperspective_interpolation\n"
+                               "#ifndef GL_EXT_shader_noperspective_interpolation\n"
+                               "#define noperspective smooth\n"
+                               "#endif\n"
+                               "#endif\n"
+                               "precision highp float;\n"
+                               "precision highp int;\n";
+        adapted.replace(pos, 17, esHeader);
     }
 #endif
     const char* text = adapted.c_str();
@@ -1132,6 +1144,7 @@ GLuint CompileShader(GLenum kind, const std::string& source)
     {
         char log[2048];
         gl.GetShaderInfoLog(shader, sizeof(log), nullptr, log);
+        Native::Log("graphics: hardware shader compile failed: %s", log);
         std::fprintf(stderr, "graphics: hardware shader: %s\n", log);
         std::abort();
     }
@@ -1147,8 +1160,11 @@ GLuint LinkProgram(GLuint vertex, GLuint fragment, bool dualSource)
     gl.AttachShader(program, fragment);
     if (dualSource)
     {
-        gl.BindFragDataLocationIndexed(program, 0, 0, "outColour");
-        gl.BindFragDataLocationIndexed(program, 0, 1, "outFactor");
+        if (gl.BindFragDataLocationIndexed != nullptr)
+        {
+            gl.BindFragDataLocationIndexed(program, 0, 0, "outColour");
+            gl.BindFragDataLocationIndexed(program, 0, 1, "outFactor");
+        }
     }
 
     gl.LinkProgram(program);
@@ -1158,6 +1174,7 @@ GLuint LinkProgram(GLuint vertex, GLuint fragment, bool dualSource)
     {
         char log[2048];
         gl.GetProgramInfoLog(program, sizeof(log), nullptr, log);
+        Native::Log("graphics: hardware program link failed: %s", log);
         std::fprintf(stderr, "graphics: hardware program: %s\n", log);
         std::abort();
     }
@@ -1435,8 +1452,13 @@ void HwGs::MakeCurrent()
 
 bool HwGs::Init()
 {
+    Native::Log("graphics: HwGs::Init: starting initialization");
     if (!RenderContext(&window_, &context_) && !PresenterContext(&window_, &context_))
     {
+#if defined(__ANDROID__)
+        Native::Log("graphics: hardware renderer: on Android, no render or presenter context available!");
+        return false;
+#else
         // No window: one of its own, hidden
         if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO))
         {
@@ -1444,17 +1466,10 @@ bool HwGs::Init()
             return false;
         }
 
-#if defined(__ANDROID__)
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-#else
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
-#endif
         ownWindow_ = SDL_CreateWindow("graphics", 64, 64, SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
         if (ownWindow_ == nullptr)
         {
@@ -1470,13 +1485,18 @@ bool HwGs::Init()
         }
 
         window_ = ownWindow_;
+#endif
     }
 
     MakeCurrent();
+    Native::Log("graphics: HwGs::Init: MakeCurrent done, calling LoadGl()...");
     if (!LoadGl())
     {
+        Native::Log("graphics: HwGs::Init: LoadGl() FAILED!");
         return false;
     }
+
+    Native::Log("graphics: HwGs::Init: LoadGl() succeeded, compiling programs...");
 
     Gl& gl = GetGl();
     gl.GenVertexArrays(1, &vertexArray_);
@@ -1505,6 +1525,7 @@ bool HwGs::Init()
                                 false);
     InitMemory();
     gs_.SetBackend(this);
+    Native::Log("graphics: HwGs::Init: HARDWARE RENDERER READY AND ACTIVE!");
     return true;
 }
 

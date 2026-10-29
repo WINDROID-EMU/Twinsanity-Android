@@ -1,4 +1,5 @@
 #include "gl.h"
+#include "platform/native/native.h"
 
 #include <SDL3/SDL.h>
 
@@ -15,6 +16,15 @@ namespace
 {
 Gl g_Gl;
 bool g_Loaded = false;
+
+static void DrawBufferFallback(GLenum mode)
+{
+    GLenum buf = mode;
+    if (g_Gl.DrawBuffers != nullptr)
+    {
+        g_Gl.DrawBuffers(1, &buf);
+    }
+}
 
 // The hardware renderer asks for its passes' uniforms by name every time it uses them (thousands a frame), and the driver looks
 // each name up again: the answers kept, a thread's (each has its own context) by program and name. The renderer's programs live
@@ -51,7 +61,7 @@ bool Load(T& function, const char* name)
     function = reinterpret_cast<T>(SDL_GL_GetProcAddress(name));
     if (function == nullptr)
     {
-        std::fprintf(stderr, "graphics: OpenGL has no %s\n", name);
+        Native::Log("graphics: OpenGL has no %s", name);
         return false;
     }
 
@@ -83,7 +93,24 @@ bool LoadGl()
     ok &= Load(g_Gl.BlitFramebuffer, "glBlitFramebuffer");
     ok &= Load(g_Gl.ReadPixels, "glReadPixels");
     ok &= Load(g_Gl.ReadBuffer, "glReadBuffer");
-    ok &= Load(g_Gl.DrawBuffer, "glDrawBuffer");
+
+    // DrawBuffer / DrawBuffers (OpenGL ES 3.0 only supports glDrawBuffers)
+    if (!Load(g_Gl.DrawBuffer, "glDrawBuffer"))
+    {
+        if (Load(g_Gl.DrawBuffers, "glDrawBuffers"))
+        {
+            g_Gl.DrawBuffer = DrawBufferFallback;
+        }
+        else
+        {
+            ok = false;
+        }
+    }
+    else
+    {
+        Load(g_Gl.DrawBuffers, "glDrawBuffers");
+    }
+
     ok &= Load(g_Gl.Viewport, "glViewport");
     ok &= Load(g_Gl.Scissor, "glScissor");
     ok &= Load(g_Gl.Enable, "glEnable");
@@ -104,7 +131,16 @@ bool LoadGl()
     ok &= Load(g_Gl.DeleteShader, "glDeleteShader");
     ok &= Load(g_Gl.CreateProgram, "glCreateProgram");
     ok &= Load(g_Gl.AttachShader, "glAttachShader");
-    ok &= Load(g_Gl.BindFragDataLocationIndexed, "glBindFragDataLocationIndexed");
+
+    // Dual-source blending entry point: glBindFragDataLocationIndexed or EXT
+    if (!Load(g_Gl.BindFragDataLocationIndexed, "glBindFragDataLocationIndexed"))
+    {
+        if (!Load(g_Gl.BindFragDataLocationIndexed, "glBindFragDataLocationIndexedEXT"))
+        {
+            g_Gl.BindFragDataLocationIndexed = [](GLuint, GLuint, GLuint, const GLchar*) {};
+        }
+    }
+
     ok &= Load(g_Gl.BindAttribLocation, "glBindAttribLocation");
     ok &= Load(g_Gl.LinkProgram, "glLinkProgram");
     ok &= Load(g_Gl.GetProgramiv, "glGetProgramiv");
@@ -128,8 +164,19 @@ bool LoadGl()
     ok &= Load(g_Gl.DrawArrays, "glDrawArrays");
     ok &= Load(g_Gl.Finish, "glFinish");
     ok &= Load(g_Gl.GetError, "glGetError");
-    ok &= Load(g_Gl.PointSize, "glPointSize");
-    ok &= Load(g_Gl.LineWidth, "glLineWidth");
+
+    // PointSize (OpenGL ES 3.0 delegates point size to gl_PointSize in the vertex shader)
+    if (!Load(g_Gl.PointSize, "glPointSize"))
+    {
+        g_Gl.PointSize = [](GLfloat) {};
+    }
+
+    // LineWidth
+    if (!Load(g_Gl.LineWidth, "glLineWidth"))
+    {
+        g_Gl.LineWidth = [](GLfloat) {};
+    }
+
     ok &= Load(g_Gl.Uniform4ui, "glUniform4ui");
     ok &= Load(g_Gl.Uniform1ui, "glUniform1ui");
     ok &= Load(g_Gl.StencilFunc, "glStencilFunc");
@@ -149,6 +196,7 @@ bool LoadGl()
         g_Gl.GetUniformLocation = CachedUniformLocation;
     }
 
+    Native::Log("graphics: LoadGl complete, status: %s", ok ? "SUCCESS" : "FAILED");
     g_Loaded = ok;
     return ok;
 }

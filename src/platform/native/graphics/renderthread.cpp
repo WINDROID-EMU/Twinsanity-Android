@@ -3,6 +3,7 @@
 #include "hardware.h"
 #include "ee/gif.h"
 #include "ee/vif.h"
+#include "platform/native/native.h"
 
 #include <SDL3/SDL.h>
 
@@ -510,7 +511,14 @@ bool RenderThreadWanted()
     if (g_Wanted < 0)
     {
         const char* setting = std::getenv("TWIN_RENDER_THREAD");
+#if defined(__ANDROID__)
+        // On Android, keeping the hardware renderer on the game thread with the main EGL context
+        // avoids single-EGLSurface conflicts and context switching overhead.
+        g_Wanted = (setting != nullptr && std::strcmp(setting, "1") == 0) ? 1 : 0;
+        Native::Log("graphics: render thread setting on Android: wanted=%d", g_Wanted);
+#else
         g_Wanted = (setting != nullptr && std::strcmp(setting, "0") == 0) ? 0 : 1;
+#endif
     }
 
     return g_Wanted == 1;

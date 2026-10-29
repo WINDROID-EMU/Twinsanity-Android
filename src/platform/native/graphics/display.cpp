@@ -676,12 +676,15 @@ void ApplyGraphicsSettings()
 
     if (wanted == 1 && !HardwareRendererActive())
     {
+        Native::Log("graphics: attempting to start Hardware Renderer with scale %u", scale);
         if (StartHardwareRenderer(scale))
         {
+            Native::Log("graphics: Hardware Renderer started successfully! (scale %u)", scale);
             GetHardware().gs->SetScale(1);
         }
         else
         {
+            Native::Log("graphics: no hardware renderer: the software GS draws");
             std::fprintf(stderr, "graphics: no hardware renderer: the software GS draws\n");
             g_RendererWanted = 0;
         }
