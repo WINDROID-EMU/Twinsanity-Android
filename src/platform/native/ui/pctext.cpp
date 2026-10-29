@@ -484,7 +484,7 @@ const NativeTextLine g_NativeTexts[] = {
     {Text144Hz, {"144 hz", "144 hz", "144 hz", "144 hz", "144 hz"}},
     {TextUnlimited, {"unlimited", "illimitée", "unbegrenzt", "ilimitada", "illimitata"}},
     {TextGameLanguage, {"language", "langue", "sprache", "idioma", "lingua"}},
-    {TextLanguageWindows, {"as windows", "comme windows", "wie windows", "como windows", "come windows"}},
+    {TextLanguageWindows, {"system default", "système", "system", "padrão do sistema", "sistema"}},
     {TextLanguageEnglish, {"english", "english", "english", "english", "english"}},
     {TextLanguageFrench, {"français", "français", "français", "français", "français"}},
     {TextLanguageGerman, {"deutsch", "deutsch", "deutsch", "deutsch", "deutsch"}},

@@ -194,7 +194,13 @@ void Build()
     Row portable = Choice(
         TextPortable, TextDescPortable, [] { return Native::PortableMode() ? 1 : 0; }, [](s32 value) { AskPortable(value != 0); }, 1,
         [](s32 value) { return Text(value != 0 ? GameTextYes : GameTextNo); });
-    portable.shown = [] { return Native::PortableSupported(); };
+    portable.shown = [] {
+#ifdef __ANDROID__
+        return false;
+#else
+        return Native::PortableSupported();
+#endif
+    };
     gameplay.push_back(portable);
 
     std::vector<Row>& display = g_Rows[TabDisplay];
@@ -207,13 +213,22 @@ void Build()
         },
         1, [](s32 value) { return Text(value != 0 ? TextFullscreen : TextWindowed); });
     mode.asksToKeep = true;
+#ifdef __ANDROID__
+    mode.shown = [] { return false; };
+#endif
     display.push_back(mode);
     Row size = Choice(
         TextWindowSize, TextDescWindowSize, [] { return WindowSizeChoice(); },
         [](s32 value) { SetResolution(FromChoices(ScaleChoice(CurrentResolution()), value)); }, DisplayChoices - 2,
         [](s32 value) { return Text(TextWindow960 + static_cast<u32>(value)); });
     size.asksToKeep = true;
-    size.shown = [] { return !CurrentResolution().fullscreen; };
+    size.shown = [] {
+#ifdef __ANDROID__
+        return false;
+#else
+        return !CurrentResolution().fullscreen;
+#endif
+    };
     display.push_back(size);
     display.push_back(Choice(
         TextResolution, TextDescResolution, [] { return ScaleChoice(CurrentResolution()); },
@@ -229,7 +244,7 @@ void Build()
                    std::to_string(512 * scale);
         }));
     display.push_back(Choice(
-        // The TV's shape: 4:3, 16:9 (the game's widescreen) or 21:9 (the game's widescreen made wider, fixes.cpp's Ultrawide)
+        // The TV's shape: 4:3, 16:9 (the game's widescreen) or 20:9 (the game's widescreen made wider, fixes.cpp's Ultrawide)
         GameTextWidescreen, TextDescWidescreen,
         [] { return g_WidescreenTv == 0 ? 0 : IsOn(OptionUltrawide) ? 2 : 1; },
         [](s32 value) {
@@ -237,7 +252,7 @@ void Build()
             SetOption(OptionWidescreen, value != 0 ? 1 : 0);
             SetOption(OptionUltrawide, value == 2 ? 1 : 0);
         },
-        2, [](s32 value) { return std::string(value == 0 ? "4:3" : value == 1 ? "16:9" : "21:9"); }));
+        2, [](s32 value) { return std::string(value == 0 ? "4:3" : value == 1 ? "16:9" : "20:9"); }));
     display.push_back(OptionChoice(TextRefreshRate, TextDescRefreshRate, OptionRefresh60,
                                    {Text50Hz, Text60Hz, Text120Hz, Text144Hz, TextUnlimited}));
     display.push_back(OptionChoice(TextFiltering, TextDescFiltering, OptionTextureFilter, {TextSharp, TextSmooth}));
@@ -457,6 +472,7 @@ bool WatchSettings(void*, SDL_Event* event)
 
             break;
         case SDL_SCANCODE_ESCAPE:
+        case SDL_SCANCODE_AC_BACK:
             if (!event->key.repeat)
             {
                 Act(UiBack);

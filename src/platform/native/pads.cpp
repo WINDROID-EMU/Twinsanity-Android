@@ -5,6 +5,7 @@
 #include "fixes.h"
 #include "platform/pads.h"
 #include "ui/bindings.h"
+#include "game/gamecontroller.h"
 
 #include <SDL3/SDL.h>
 
@@ -288,6 +289,12 @@ s32 Platform::Pads::Read(s32 port, s32 slot, u8* data)
 
     NativeUi::ReadBindings(keys, g_Gamepad, &bound);
     u32 buttons = bound.buttons;
+#ifdef __ANDROID__
+    if (keys[SDL_SCANCODE_AC_BACK] && G_GameController != nullptr && G_GameController->State() == GameController::StatePlaying)
+    {
+        buttons |= NativeUi::PadBitStart;
+    }
+#endif
     u8 pressure[PressureReportBytes] = {};
     pressure[PressureL2] = bound.l2Pressure;
     pressure[PressureR2] = bound.r2Pressure;

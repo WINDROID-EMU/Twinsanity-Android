@@ -701,7 +701,11 @@ extern "C"
     {
         if (size < SmallAllocationLimit)
         {
-            return SmallAllocate(&heap->small, size);
+            void* memory = SmallAllocate(&heap->small, size);
+            if (memory != nullptr)
+            {
+                return memory;
+            }
         }
 
         return HeapAlloc(heap, size);

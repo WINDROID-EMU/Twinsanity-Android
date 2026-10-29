@@ -64,6 +64,10 @@ void GrowPool(ItemPool<T>* pool)
 
     T* items = static_cast<T*>(MemoryAllocate2((pool->capacity + pool->growth) * sizeof(T)));
     s16* links = static_cast<s16*>(MemoryAllocate2((pool->capacity + pool->growth) * sizeof(s16)));
+    if (items == nullptr || links == nullptr)
+    {
+        return;
+    }
     if (pool->capacity != 0)
     {
         T* old = pool->items;
@@ -109,6 +113,10 @@ s32 AllocateSlot(ItemPool<T>* pool)
     if (!(pool->count < pool->capacity))
     {
         pool->Grow();
+        if (!(pool->count < pool->capacity))
+        {
+            return 0;
+        }
         return pool->Allocate();
     }
 

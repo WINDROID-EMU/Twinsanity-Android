@@ -169,7 +169,13 @@ bool LoadGl(Gl& gl)
     return gl.Enable != nullptr && gl.CreateProgram != nullptr && gl.DrawArrays != nullptr && gl.GenVertexArrays != nullptr;
 }
 
-constexpr const char* VertexSource = R"(#version 330 core
+#if defined(__ANDROID__)
+#define SHADER_VERSION_HEADER "#version 300 es\nprecision highp float;\nprecision highp int;\n"
+#else
+#define SHADER_VERSION_HEADER "#version 330 core\n"
+#endif
+
+constexpr const char* VertexSource = SHADER_VERSION_HEADER R"(
 in vec2 position;
 in vec2 uv;
 uniform vec2 viewport;
@@ -183,7 +189,7 @@ void main()
 }
 )";
 
-constexpr const char* FragmentSource = R"(#version 330 core
+constexpr const char* FragmentSource = SHADER_VERSION_HEADER R"(
 in vec2 pixel;
 in vec2 texel;
 out vec4 colour;

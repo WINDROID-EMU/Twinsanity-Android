@@ -34,12 +34,12 @@ struct OptionInfo
 // cutscenes, as it couldn't; its own settings' defaults), at 60 Hz (the NTSC release's rate: 50 judders on a 60 Hz display), with
 // the PC conveniences that change nothing of the game on (fast loading, pausing and muting in the background, the mouse)
 constexpr OptionInfo Infos[OptionCount] = {
-    {OptionSkipCutscenes, "skip_cutscenes", 0, 1},
+    {OptionSkipCutscenes, "skip_cutscenes", 1, 1},
     {OptionFastLoading, "fast_loading", 1, 1},
     {OptionPauseOnFocusLoss, "pause_on_focus_loss", 1, 1},
     {OptionWidescreen, "widescreen", 1, 1},
     {OptionRefresh60, "refresh_60hz", 1, 4},
-    {OptionRetailFixes, "retail_fixes", 0, 1},
+    {OptionRetailFixes, "retail_fixes", 1, 1},
     {OptionTextureFilter, "texture_filter", 1, 1},
     {OptionCrtFilter, "crt_filter", 0, 1},
     {OptionNintendoLayout, "nintendo_layout", 1, 1},

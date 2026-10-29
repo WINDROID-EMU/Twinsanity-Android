@@ -226,7 +226,7 @@ bool WatchMouse(void*, SDL_Event* event)
         {
             g_EnterKey = true;
         }
-        else if (event->key.scancode == SDL_SCANCODE_ESCAPE)
+        else if (event->key.scancode == SDL_SCANCODE_ESCAPE || event->key.scancode == SDL_SCANCODE_AC_BACK)
         {
             g_EscapeKey = true;
         }

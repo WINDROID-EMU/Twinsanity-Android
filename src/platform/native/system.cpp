@@ -620,7 +620,11 @@ namespace
 // The PS2 gave the game's pools what its 32 MB left past the executable and the C library's reserve (about 28 MB). Natively
 // structs that hold pointers are bigger, so the pools get twice that (native/NATIVE.md)
 constexpr u32 Ps2PoolSpace = 0x2000000 - (0x3DDA00 + 0x2800);
+#ifdef __ANDROID__
+constexpr u32 NativePoolScale = 8;
+#else
 constexpr u32 NativePoolScale = 4;
+#endif
 }
 
 u32 Platform::Memory::PoolSpace()
