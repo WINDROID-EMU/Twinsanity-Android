@@ -165,7 +165,16 @@ void Load(T& function, const char* name)
 GLuint Compile(Gl& gl, GLenum kind, const char* source, bool required = true)
 {
     GLuint shader = gl.CreateShader(kind);
-    gl.ShaderSource(shader, 1, &source, nullptr);
+    std::string adapted = source;
+#if defined(__ANDROID__)
+    size_t pos = adapted.find("#version 330 core");
+    if (pos != std::string::npos)
+    {
+        adapted.replace(pos, 17, "#version 300 es\nprecision highp float;\nprecision highp int;");
+    }
+#endif
+    const char* text = adapted.c_str();
+    gl.ShaderSource(shader, 1, &text, nullptr);
     gl.CompileShader(shader);
     GLint ok = 0;
     gl.GetShaderiv(shader, GL_COMPILE_STATUS, &ok);
@@ -482,10 +491,17 @@ bool MakeRenderContext()
     }
 
     Presenter& p = g_Presenter;
+#if defined(__ANDROID__)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
     if (p.context != nullptr)
     {
         SDL_GL_MakeCurrent(p.window, p.context);
@@ -760,10 +776,17 @@ int NativeGraphicsPostFilterInUse()
 void NativeGraphicsAttachWindow(SDL_Window* window)
 {
     Presenter& p = g_Presenter;
+#if defined(__ANDROID__)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
     p.context = SDL_GL_CreateContext(window);
     if (p.context == nullptr)
     {

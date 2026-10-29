@@ -52,11 +52,26 @@ fs::path g_Program;
 
 std::string Native::AppDataSettingsFolder()
 {
+#if defined(__ANDROID__)
+    // On Android, use the external or internal files path provided by SDL3
+    const char* pref = SDL_GetPrefPath("", "Crash Twinsanity");
+    if (pref != nullptr)
+    {
+        std::string folder = pref;
+        if (!folder.empty() && folder.back() == '/')
+        {
+            folder.pop_back();
+        }
+        return folder;
+    }
+    return "/sdcard/Android/data/com.crashtwinsanity/files";
+#else
     // %APPDATA%\Crash Twinsanity (the roaming settings, as SDL_GetPrefPath has them), forward slashes like the rest
     const char* appData = std::getenv("APPDATA");
     std::string folder = std::string(appData != nullptr ? appData : ".") + "/Crash Twinsanity";
     std::replace(folder.begin(), folder.end(), '\\', '/');
     return folder;
+#endif
 }
 
 std::string Native::DiscImageFromSetting(const std::string& line)

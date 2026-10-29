@@ -12,7 +12,9 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#if !defined(__ANDROID__)
 #include <execinfo.h>
+#endif
 #include <fstream>
 #include <sys/ucontext.h>
 #include <unistd.h>
@@ -385,9 +387,22 @@ void OnFault(int signal, siginfo_t* info, void* context)
                                static_cast<unsigned long long>(i + 3 < 29 ? state.__x[i + 3] : state.__sp));
         ::write(2, message, static_cast<size_t>(length));
     }
+#elif defined(__aarch64__)
+    const auto& machine = static_cast<ucontext_t*>(context)->uc_mcontext;
+    for (int i = 0; i < 29; i += 4)
+    {
+        length = std::snprintf(message, sizeof(message), "  x%-2d %016llx  x%-2d %016llx  x%-2d %016llx  x%-2d %016llx\n", i,
+                               static_cast<unsigned long long>(machine.regs[i]), i + 1,
+                               static_cast<unsigned long long>(machine.regs[i + 1]), i + 2,
+                               static_cast<unsigned long long>(machine.regs[i + 2]), i + 3,
+                               static_cast<unsigned long long>(machine.regs[i + 3]));
+        ::write(2, message, static_cast<size_t>(length));
+    }
 #endif
+#if !defined(__ANDROID__)
     void* frames[48];
     backtrace_symbols_fd(frames, backtrace(frames, 48), 2);
+#endif
     struct sigaction& previous = g_Previous[signal == SIGBUS ? 1 : 0];
     sigaction(signal, &previous, nullptr);
 }
@@ -649,12 +664,14 @@ namespace Native
 // Loads the PS2's low memory dump when there's one, and starts emulating the retail code's low accesses
 void StartLowMemory()
 {
+#if !defined(__ANDROID__)
     std::ifstream dump("build/native/ps2_low_memory.bin", std::ios::binary);
     if (dump)
     {
         dump.read(reinterpret_cast<char*>(g_NativeLowMemory), NativeLowMemoryBytes);
         Log("the PS2's low memory from build/native/ps2_low_memory.bin");
     }
+#endif
 
 #if defined(__aarch64__)
     struct sigaction action = {};
@@ -687,8 +704,10 @@ void NativeBadFree(void* memory, const void* pages, const void* pagesEnd)
         char message[128];
         int length = std::snprintf(message, sizeof(message), "[native] a free of %p, outside the small pages %p-%p, left alone:\n", memory, pages, pagesEnd);
         ::write(2, message, static_cast<size_t>(length));
+#if !defined(__ANDROID__)
         void* frames[24];
         backtrace_symbols_fd(frames, backtrace(frames, 24), 2);
+#endif
     }
 }
 
@@ -703,8 +722,10 @@ void NativeHeapProblem(const char* what, void* memory)
     char message[160];
     int length = std::snprintf(message, sizeof(message), "[native] heap: %s (%p):\n", what, memory);
     ::write(2, message, static_cast<size_t>(length));
+#if !defined(__ANDROID__)
     void* frames[16];
     backtrace_symbols_fd(frames, backtrace(frames, 16), 2);
+#endif
 }
 #endif
 

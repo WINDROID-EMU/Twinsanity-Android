@@ -36,3 +36,21 @@ desktop.ini
 
 # FFmpeg's source release (native/tools/build_ffmpeg.sh downloads and builds it; see native/third_party/ffmpeg/README.md)
 /native/third_party/ffmpeg-src/
+
+# Android build artifacts and temp files
+.gradle/
+**/build/
+*.apk
+*.aab
+local.properties
+.cxx/
+
+# ROMs, ISOs, tools and binary downloads
+/Rom/
+/toolchain/
+*.iso
+*.chd
+*.cso
+*.bin
+*.cue
+

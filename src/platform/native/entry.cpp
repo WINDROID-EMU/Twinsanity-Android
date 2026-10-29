@@ -156,7 +156,12 @@ void SetUpLog()
 }
 #endif
 
+#if defined(__ANDROID__)
+#include <SDL3/SDL_main.h>
+extern "C" SDL_DECLSPEC int SDL_main(int argc, char* argv[])
+#else
 int main(int argc, char** argv)
+#endif
 {
     // What the log leaves out of its paths (the profile folder), before its first line
     Native::StartLogPrivacy();

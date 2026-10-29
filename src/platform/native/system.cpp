@@ -138,7 +138,9 @@ void Native::ParseArguments(int& argc, char** argv)
 // dialog the first time it's launched without one
 std::string Native::SettingsFolder()
 {
-#if defined(_WIN32)
+#if defined(__ANDROID__)
+    return AppDataSettingsFolder();
+#elif defined(_WIN32)
     // Windows: %APPDATA%\Crash Twinsanity, or in portable mode the User folder beside the program (portable.cpp)
     return PortableMode() ? PortableUserFolder() : AppDataSettingsFolder();
 #elif defined(__APPLE__)
@@ -261,6 +263,10 @@ double Native::SessionSeconds()
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - g_Started).count();
 }
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 void Native::Log(const char* format, ...)
 {
     double seconds = SessionSeconds();
@@ -270,6 +276,9 @@ void Native::Log(const char* format, ...)
     va_end(arguments);
     // A line in one write (the threads' lines don't mix)
     std::fprintf(stderr, "[native] [%8.3f] %s\n", seconds, message.c_str());
+#if defined(__ANDROID__)
+    __android_log_print(ANDROID_LOG_INFO, "Twinsanity", "[native] [%8.3f] %s", seconds, message.c_str());
+#endif
 }
 
 void Native::Fatal(const char* format, ...)
@@ -282,6 +291,9 @@ void Native::Fatal(const char* format, ...)
     EndSessionSummary();
     std::fprintf(stderr, "[native] fatal: %s\n", message.c_str());
     std::fflush(stderr);
+#if defined(__ANDROID__)
+    __android_log_print(ANDROID_LOG_ERROR, "Twinsanity", "[native] fatal: %s", message.c_str());
+#endif
     std::exit(1);
 }
 
@@ -401,6 +413,52 @@ void Native::OpenDiscImage()
     // found there is used without asking
     bool searchable = askable && PortableMode();
     std::string problem;
+
+#if defined(__ANDROID__)
+    if (image.empty())
+    {
+        const std::vector<std::string> searchDirs = {
+            Native::SettingsFolder(),
+            "/sdcard/Android/data/com.crashtwinsanity/files",
+            "/storage/emulated/0/Android/data/com.crashtwinsanity/files"
+        };
+        for (const auto& dir : searchDirs)
+        {
+            std::error_code ec;
+            if (std::filesystem::exists(dir, ec))
+            {
+                for (const auto& entry : std::filesystem::directory_iterator(dir, ec))
+                {
+                    if (entry.is_regular_file(ec))
+                    {
+                        std::string ext = entry.path().extension().string();
+                        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                        if (ext == ".iso" || ext == ".bin" || ext == ".img")
+                        {
+                            std::string candidate = entry.path().string();
+                            std::string check = CheckDiscImage(candidate);
+                            if (check.empty())
+                            {
+                                Native::Log("Android: found valid game disc image: %s", candidate.c_str());
+                                image = candidate;
+                                break;
+                            }
+                            else
+                            {
+                                Native::Log("Android: candidate %s failed check: %s", candidate.c_str(), check.c_str());
+                            }
+                        }
+                    }
+                }
+            }
+            if (!image.empty())
+            {
+                break;
+            }
+        }
+    }
+#endif
+
     for (;;)
     {
         if (image.empty() && searchable)

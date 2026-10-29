@@ -863,9 +863,15 @@ bool RenderFrameOffscreen(u32 width, u32 height, std::vector<u32>* pixels)
             return false;
         }
 
+#if defined(__ANDROID__)
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
         window = SDL_CreateWindow("overlay", 64, 64, SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
         if (window == nullptr)
         {

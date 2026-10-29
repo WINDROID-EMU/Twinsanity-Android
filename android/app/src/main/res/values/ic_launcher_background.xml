@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cor de fundo verde correspondente ao tema da arte de Crash Twinsanity -->
+    <color name="ic_launcher_background">#00C800</color>
+</resources>
+

@@ -60,7 +60,7 @@ constexpr OptionInfo Infos[OptionCount] = {
     {OptionCameraSpeed, "camera_speed", 5, 10},
     {OptionStickDeadZone, "stick_dead_zone", 0, 10},
     {OptionMuteInactive, "mute_in_background", 1, 1},
-    {OptionUltrawide, "ultrawide", 0, 1},
+    {OptionUltrawide, "ultrawide", 1, 1},
     {OptionMouseLook, "mouse_look", 1, 1},
     {OptionMouseSensitivity, "mouse_sensitivity", 5, 10},
     {OptionInvertMouseY, "invert_mouse_y", 0, 1},
