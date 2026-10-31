@@ -88,6 +88,10 @@ bool LoadGl()
     ok &= Load(g_Gl.GenFramebuffers, "glGenFramebuffers");
     ok &= Load(g_Gl.DeleteFramebuffers, "glDeleteFramebuffers");
     ok &= Load(g_Gl.BindFramebuffer, "glBindFramebuffer");
+    if (!Load(g_Gl.InvalidateFramebuffer, "glInvalidateFramebuffer"))
+    {
+        Load(g_Gl.InvalidateFramebuffer, "glDiscardFramebufferEXT");
+    }
     ok &= Load(g_Gl.FramebufferTexture2D, "glFramebufferTexture2D");
     ok &= Load(g_Gl.CheckFramebufferStatus, "glCheckFramebufferStatus");
     ok &= Load(g_Gl.BlitFramebuffer, "glBlitFramebuffer");

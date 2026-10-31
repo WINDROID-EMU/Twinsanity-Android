@@ -58,6 +58,31 @@ add_library(main SHARED
     ${GENERATED_SOURCES}
 )
 
+target_compile_options(main PRIVATE
+    -O3
+    -march=armv8-a+simd
+    -fno-exceptions
+    -fno-rtti
+    -fno-threadsafe-statics
+    -fno-strict-aliasing
+    -fno-delete-null-pointer-checks
+    -fwrapv
+    -ffp-contract=off
+    -fno-strict-float-cast-overflow
+    -Wall
+    -Wno-invalid-offsetof
+    -Wno-unused-variable
+    -Wno-unused-function
+    -Wno-unused-but-set-variable
+    -Wno-unknown-pragmas
+    -Wno-missing-braces
+    -Wno-mismatched-tags
+)
+
+target_compile_definitions(main PRIVATE
+    NDEBUG
+)
+
 target_link_libraries(main PRIVATE
     SDL3
     avcodec

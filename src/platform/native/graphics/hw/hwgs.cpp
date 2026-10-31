@@ -87,6 +87,16 @@ enum TargetClass : u32
     ClassNone,
 };
 
+#if defined(__ANDROID__)
+// On Android / Adreno TBDR GPUs, GL_DEPTH24_STENCIL8 uses 32 bpp (instead of 64 bpp for D32F_S8),
+// doubling GMEM tile size and halving memory bandwidth while perfectly matching PS2 24-bit Z buffer precision.
+constexpr GLenum DepthStencilInternal = GL_DEPTH24_STENCIL8;
+constexpr GLenum DepthStencilType = GL_UNSIGNED_INT_24_8;
+#else
+constexpr GLenum DepthStencilInternal = GL_DEPTH32F_STENCIL8;
+constexpr GLenum DepthStencilType = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
+#endif
+
 
 u32 ClassOf(u32 psm)
 {
@@ -335,22 +345,21 @@ enum ProgramBits : u32
 constexpr const char* VertexSource = R"(#version 330 core
 layout(location = 0) in vec2 aPos;
 layout(location = 1) in uint aZ;
-layout(location = 2) in vec4 aColour;
+layout(location = 2) in mediump vec4 aColour;
 layout(location = 3) in vec3 aStq;
-layout(location = 4) in float aFog;
+layout(location = 4) in mediump float aFog;
 uniform vec2 viewSize;
 uniform vec2 viewOrigin;
 uniform float zMax;
 uniform uint zMaxU;
 uniform int depthReverse;
 uniform float pointSize;
-noperspective out vec4 vColour;
+noperspective out mediump vec4 vColour;
 noperspective out vec3 vStq;
-noperspective out float vFog;
-noperspective out float vDepth;
+noperspective out mediump float vFog;
+noperspective out highp float vDepth;
 void main()
 {
-    gl_Position = vec4((aPos + viewOrigin) / viewSize * 2.0 - 1.0, 0.0, 1.0);
     gl_PointSize = pointSize;
     vColour = aColour;
     vStq = aStq;
@@ -358,24 +367,25 @@ void main()
     // Depth as a float of the GS's value over 2^32 (exact below 2^24), or for a reversed target 2^32 - 1 less it (exact near
     // the top)
     vDepth = depthReverse != 0 ? float(0xFFFFFFFFu - min(aZ, zMaxU)) * (1.0 / 4294967296.0) : min(float(aZ), zMax) * (1.0 / 4294967296.0);
+    gl_Position = vec4((aPos + viewOrigin) / viewSize * 2.0 - 1.0, vDepth * 2.0 - 1.0, 1.0);
 }
 )";
 
 constexpr const char* FragmentSource = R"(
-noperspective in vec4 vColour;
+noperspective in mediump vec4 vColour;
 noperspective in vec3 vStq;
-noperspective in float vFog;
-noperspective in float vDepth;
-layout(location = 0, index = 0) out vec4 outColour;
-layout(location = 0, index = 1) out vec4 outFactor;
+noperspective in mediump float vFog;
+noperspective in highp float vDepth;
+layout(location = 0, index = 0) out mediump vec4 outColour;
+layout(location = 0, index = 1) out mediump vec4 outFactor;
 uniform sampler2D tex;
 uniform vec2 texSize;
 uniform vec2 texActual;
 uniform float texSnap;
-uniform float aref;
-uniform vec3 fogColour;
-uniform float ta0;
-uniform float ta1;
+uniform mediump float aref;
+uniform mediump vec3 fogColour;
+uniform mediump float ta0;
+uniform mediump float ta1;
 uniform int aem;
 uniform float lodK;
 uniform float lodL;
@@ -388,7 +398,7 @@ uniform int blendA;
 uniform int blendB;
 uniform int blendC;
 uniform int blendD;
-uniform float blendFix;
+uniform mediump float blendFix;
 uniform int pabe;
 uniform int colclamp;
 uniform int datm;
@@ -397,7 +407,7 @@ uniform int depthReverse;
 uniform sampler2D depthCopy;
 uniform int nativeZtst;
 uniform int targetScale;
-vec3 Pick(int select, vec3 source, vec3 destination)
+vec3 Pick(int select, mediump vec3 source, mediump vec3 destination)
 {
     return select == 0 ? source : select == 1 ? destination : vec3(0.0);
 }
@@ -433,9 +443,9 @@ void main()
         }
     }
 #endif
-    vec4 c = vColour;
-    vec3 rgb;
-    float a;
+    mediump vec4 c = vColour;
+    mediump vec3 rgb;
+    mediump float a;
 #if TEXTURED
 #if UVMODE
     vec2 uv = vStq.xy;
@@ -561,7 +571,13 @@ void main()
         outColour = vec4(part / 256.0, 0.0);
         outFactor = vec4(0.0);
 #if DEPTH
+#if defined(__ANDROID__)
+#if NATIVEDEPTH
         gl_FragDepth = depth;
+#endif
+#else
+        gl_FragDepth = depth;
+#endif
 #endif
         return;
     }
@@ -614,7 +630,13 @@ void main()
 #endif
     outFactor = vec4(0.0, 0.0, 0.0, min(a / 128.0, 1.0));
 #if DEPTH
+#if defined(__ANDROID__)
+#if NATIVEDEPTH
     gl_FragDepth = depth;
+#endif
+#else
+    gl_FragDepth = depth;
+#endif
 #endif
 }
 )";
@@ -1626,8 +1648,8 @@ void HwGs::Staging(u32 width, u32 height, bool depth, GLuint* texture, GLuint* f
     Pass(*fbo, "staging");
     if (depth)
     {
-        gl.TexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(GL_DEPTH32F_STENCIL8), static_cast<GLsizei>(width),
-                      static_cast<GLsizei>(height), 0, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV, nullptr);
+        gl.TexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(DepthStencilInternal), static_cast<GLsizei>(width),
+                      static_cast<GLsizei>(height), 0, GL_DEPTH_STENCIL, DepthStencilType, nullptr);
         gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, *texture, 0);
         gl.DrawBuffer(GL_NONE);
         gl.ReadBuffer(GL_NONE);
@@ -1709,8 +1731,8 @@ Target* HwGs::TargetFor(u32 bp, u32 bw, u32 psm, u32 height, bool frame)
     gl.BindFramebuffer(GL_FRAMEBUFFER, t.fbo);
     if (t.depth)
     {
-        gl.TexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(GL_DEPTH32F_STENCIL8), w, h, 0, GL_DEPTH_STENCIL,
-                      GL_FLOAT_32_UNSIGNED_INT_24_8_REV, nullptr);
+        gl.TexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(DepthStencilInternal), w, h, 0, GL_DEPTH_STENCIL,
+                      DepthStencilType, nullptr);
         gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, t.texture, 0);
         gl.DrawBuffer(GL_NONE);
         gl.ReadBuffer(GL_NONE);
@@ -3668,8 +3690,8 @@ Target* HwGs::ScratchStencil(Target* colour)
     gl.GenTextures(1, &made->texture);
     gl.BindTexture(GL_TEXTURE_2D, made->texture);
     gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    gl.TexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(GL_DEPTH32F_STENCIL8), static_cast<GLsizei>(colour->width * colour->scale),
-                  static_cast<GLsizei>(colour->height * colour->scale), 0, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV, nullptr);
+    gl.TexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(DepthStencilInternal), static_cast<GLsizei>(colour->width * colour->scale),
+                  static_cast<GLsizei>(colour->height * colour->scale), 0, GL_DEPTH_STENCIL, DepthStencilType, nullptr);
     Target* raw = made.get();
     scratchStencils_[colour] = std::move(made);
     return raw;
@@ -4906,7 +4928,13 @@ void HwGs::Flush()
         // A viewport far bigger than the target (the scissor keeps the drawing in it): primitives reaching past the target
         // aren't clipped, which would move their edges by the rasteriser's snapping of the new vertexes (a sixteenth of a
         // pixel, enough to lose a thin primitive's pixels); powers of two, so the positions stay exact
+#if defined(__ANDROID__)
+        // On Android / Adreno TBDR GPUs, default to small viewport matching the target dimension.
+        // This avoids tracking an enormous 16384x16384 bounding area in the hardware binning engine.
+        static const bool smallViewport = std::getenv("TWIN_HW_BIG_VIEWPORT") == nullptr;
+#else
         static const bool smallViewport = std::getenv("TWIN_HW_SMALL_VIEWPORT") != nullptr;
+#endif
         if (smallViewport)
         {
             gl.Viewport(0, 0, width, height);
@@ -5430,6 +5458,13 @@ bool HwGs::CopyDisplay(u32 slot, GLsync drawn, NativeGraphics::ShownTexture* sho
     gl.Disable(GL_SCISSOR_TEST);
     gl.BlitFramebuffer(rect.left, rect.top, rect.left + static_cast<GLint>(display.width), rect.top + static_cast<GLint>(display.height),
                        0, 0, static_cast<GLint>(display.width), static_cast<GLint>(display.height), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+#if defined(__ANDROID__)
+    if (gl.InvalidateFramebuffer != nullptr)
+    {
+        constexpr GLenum discardAttachments[] = {GL_DEPTH_STENCIL_ATTACHMENT};
+        gl.InvalidateFramebuffer(GL_READ_FRAMEBUFFER, 1, discardAttachments);
+    }
+#endif
     gl.BindFramebuffer(GL_FRAMEBUFFER, 0);
     shown->texture = copy.texture;
     shown->width = display.width;

@@ -61,6 +61,12 @@ bool WatchMouseLook(void*, SDL_Event* event)
     switch (event->type)
     {
     case SDL_EVENT_MOUSE_MOTION:
+        // Synthetic mouse events generated from touchscreen touches must never drive mouse look
+        if (event->motion.which == SDL_TOUCH_MOUSEID)
+        {
+            break;
+        }
+
         if (g_Relative)
         {
             AddAtomic(g_DeltaX, event->motion.xrel);
@@ -144,6 +150,25 @@ void StartMouseLook()
 
 void MouseLookFrame()
 {
+#if defined(__ANDROID__)
+    // On Android, controllers and touch are used. Relative mouse mode triggers pointer capture,
+    // which breaks touch handling and sends spurious captured pointer deltas that spin the camera.
+    if (!IsOn(OptionMouseLook))
+    {
+        if (g_Window != nullptr)
+        {
+            SDL_SetWindowRelativeMouseMode(g_Window, false);
+            g_Window = nullptr;
+        }
+        g_DeltaX = 0.0f;
+        g_DeltaY = 0.0f;
+        g_StickX = 0.0f;
+        g_StickY = 0.0f;
+        g_Relative = false;
+        return;
+    }
+#endif
+
     bool playing = Playing();
     g_InPlay = playing;
     if (!playing)

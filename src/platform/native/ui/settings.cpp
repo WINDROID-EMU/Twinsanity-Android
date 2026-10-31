@@ -287,7 +287,13 @@ void Build()
     controls.push_back(layout);
     controls.push_back(OptionChoice(TextMenuHints, TextDescMenuHints, OptionMenuHints, {TextHintsOriginal, TextHintsBar}));
     controls.push_back(Toggle(TextMouse, TextDescMouse, OptionMouse));
+#if defined(__ANDROID__)
+    Row mouseLook = Toggle(TextMouseLook, TextDescMouseLook, OptionMouseLook);
+    mouseLook.shown = [] { return false; };
+    controls.push_back(mouseLook);
+#else
     controls.push_back(Toggle(TextMouseLook, TextDescMouseLook, OptionMouseLook));
+#endif
     Row sensitivity = OptionSlider(TextMouseSensitivity, TextDescMouseSensitivity, OptionMouseSensitivity, 1, 10);
     sensitivity.shown = [] { return IsOn(OptionMouseLook); };
     controls.push_back(sensitivity);

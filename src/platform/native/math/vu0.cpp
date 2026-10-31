@@ -26,42 +26,42 @@ constexpr u32 MacShift(u32 field)
     return 3 - field;
 }
 
-bool Writes(u32 dest, u32 field)
+inline __attribute__((always_inline)) bool Writes(u32 dest, u32 field)
 {
     return ((dest >> MacShift(field)) & 1) != 0;
 }
 
-u32 OpAdd(u32 a, u32 b)
+inline __attribute__((always_inline)) u32 OpAdd(u32 a, u32 b)
 {
     return VuFloat::Add(a, b);
 }
 
-u32 OpSub(u32 a, u32 b)
+inline __attribute__((always_inline)) u32 OpSub(u32 a, u32 b)
 {
     return VuFloat::Sub(a, b);
 }
 
-u32 OpMul(u32 a, u32 b)
+inline __attribute__((always_inline)) u32 OpMul(u32 a, u32 b)
 {
     return VuFloat::Mul(a, b);
 }
 
-u32 OpMax(u32 a, u32 b)
+inline __attribute__((always_inline)) u32 OpMax(u32 a, u32 b)
 {
     return VuFloat::Max(a, b);
 }
 
-u32 OpMin(u32 a, u32 b)
+inline __attribute__((always_inline)) u32 OpMin(u32 a, u32 b)
 {
     return VuFloat::Min(a, b);
 }
 
-u32 OpMadd(u32 acc, u32 a, u32 b)
+inline __attribute__((always_inline)) u32 OpMadd(u32 acc, u32 a, u32 b)
 {
     return VuFloat::MulAdd(acc, a, b);
 }
 
-u32 OpMsub(u32 acc, u32 a, u32 b)
+inline __attribute__((always_inline)) u32 OpMsub(u32 acc, u32 a, u32 b)
 {
     return VuFloat::MulSub(acc, a, b);
 }
@@ -161,7 +161,7 @@ u32 Vu0::Cfc2(u32 reg) const
 
 // PCSX2's VU_MAC_UPDATE: the sign bit is the sign flag; a zero sets the zero flag; a denormal (none come out of the arithmetic)
 // is the underflow flag and a zero, an exponent of 255 (none either) the overflow flag and the largest float
-u32 Vu0::MacField(u32 field, u32 value)
+inline __attribute__((always_inline)) u32 Vu0::MacField(u32 field, u32 value)
 {
     u32 shift = MacShift(field);
     u32 sign = value & VuFloat::SignBit;
@@ -197,7 +197,7 @@ u32 Vu0::MacField(u32 field, u32 value)
     return value;
 }
 
-void Vu0::ClearMacField(u32 field)
+inline __attribute__((always_inline)) void Vu0::ClearMacField(u32 field)
 {
     mac &= ~(0x1111u << MacShift(field));
 }
@@ -208,7 +208,8 @@ Vf* Vu0::Out(u32 fd)
 }
 
 // The sources are copies: a field written doesn't change what another reads (each field reads only its own anyway)
-void Vu0::Apply(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Binary op)
+template <typename Op>
+inline __attribute__((always_inline)) void Vu0::Apply(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Op op)
 {
     Vf a = fs;
     Vf b = ft;
@@ -225,7 +226,8 @@ void Vu0::Apply(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Binary op)
     }
 }
 
-void Vu0::ApplyBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Binary op)
+template <typename Op>
+inline __attribute__((always_inline)) void Vu0::ApplyBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Op op)
 {
     Vf a = fs;
     for (u32 field = 0; field < 4; field++)
@@ -241,7 +243,8 @@ void Vu0::ApplyBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Binary op)
     }
 }
 
-void Vu0::ApplyAcc(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Ternary op)
+template <typename Op>
+inline __attribute__((always_inline)) void Vu0::ApplyAcc(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Op op)
 {
     Vf a = fs;
     Vf b = ft;
@@ -259,7 +262,8 @@ void Vu0::ApplyAcc(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Ternary op)
     }
 }
 
-void Vu0::ApplyAccBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Ternary op)
+template <typename Op>
+inline __attribute__((always_inline)) void Vu0::ApplyAccBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Op op)
 {
     Vf a = fs;
     Vf accumulator = acc;

@@ -13,11 +13,17 @@
 #include <cmath>
 #include <cstring>
 
+#if defined(__aarch64__) || defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
+
 namespace Ee::Vu1Jit
 {
 typedef u32 V4u __attribute__((vector_size(16)));
 typedef s32 V4i __attribute__((vector_size(16)));
 typedef f32 V4f __attribute__((vector_size(16)));
+
+#define VU1_ALWAYS_INLINE inline __attribute__((always_inline))
 
 #if defined(__clang__)
 #define VU1_SHUFFLE(v, a, b, c, d) __builtin_shufflevector((v), (v), a, b, c, d)
@@ -25,62 +31,102 @@ typedef f32 V4f __attribute__((vector_size(16)));
 #define VU1_SHUFFLE(v, a, b, c, d) __builtin_shuffle((v), V4i{a, b, c, d})
 #endif
 
-inline V4f AsF(V4u v)
+VU1_ALWAYS_INLINE V4f AsF(V4u v)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vreinterpretq_f32_u32(v);
+#else
     return reinterpret_cast<V4f&>(v);
+#endif
 }
 
-inline V4u AsU(V4f v)
+VU1_ALWAYS_INLINE V4u AsU(V4f v)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vreinterpretq_u32_f32(v);
+#else
     return reinterpret_cast<V4u&>(v);
+#endif
 }
 
-inline V4u Splat(u32 x)
+VU1_ALWAYS_INLINE V4u Splat(u32 x)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vdupq_n_u32(x);
+#else
     return V4u{x, x, x, x};
+#endif
 }
 
-inline V4u Select(V4u mask, V4u a, V4u b)
+VU1_ALWAYS_INLINE V4u Select(V4u mask, V4u a, V4u b)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vbslq_u32(mask, a, b);
+#else
     return (mask & a) | (~mask & b);
+#endif
 }
 
-inline V4u Min(V4u a, V4u b)
+VU1_ALWAYS_INLINE V4u Min(V4u a, V4u b)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vminq_u32(a, b);
+#else
     return Select(reinterpret_cast<V4u>(a < b), a, b);
+#endif
 }
 
-inline V4u Max(V4u a, V4u b)
+VU1_ALWAYS_INLINE V4u Max(V4u a, V4u b)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vmaxq_u32(a, b);
+#else
     return Select(reinterpret_cast<V4u>(a > b), a, b);
+#endif
 }
 
-inline V4u Load(const u8* at)
+VU1_ALWAYS_INLINE V4u Load(const u8* at)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vld1q_u32(reinterpret_cast<const u32*>(at));
+#else
     V4u v;
     std::memcpy(&v, at, 16);
     return v;
+#endif
 }
 
-inline void Store(u8* at, V4u v)
+VU1_ALWAYS_INLINE void Store(u8* at, V4u v)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    vst1q_u32(reinterpret_cast<u32*>(at), v);
+#else
     std::memcpy(at, &v, 16);
+#endif
 }
 
-inline V4u LoadVf(const Vf& r)
+VU1_ALWAYS_INLINE V4u LoadVf(const Vf& r)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vld1q_u32(r.u);
+#else
     V4u v;
     std::memcpy(&v, r.u, 16);
     return v;
+#endif
 }
 
-inline void StoreVf(Vf& r, V4u v)
+VU1_ALWAYS_INLINE void StoreVf(Vf& r, V4u v)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    vst1q_u32(r.u, v);
+#else
     std::memcpy(r.u, &v, 16);
+#endif
 }
 
 // A constant the compiler mustn't fold into float arithmetic (it would round to nearest)
-inline u32 Opaque(u32 x)
+VU1_ALWAYS_INLINE u32 Opaque(u32 x)
 {
     asm volatile("" : "+r"(x));
     return x;
@@ -88,7 +134,7 @@ inline u32 Opaque(u32 x)
 
 // Lanes of a destination mask (x is bit 0): new in the mask's lanes, old elsewhere
 template <u32 Mask>
-inline V4u Blend(V4u old, V4u neu)
+VU1_ALWAYS_INLINE V4u Blend(V4u old, V4u neu)
 {
     if constexpr ((Mask & 0xF) == 0xF)
     {
@@ -100,32 +146,56 @@ inline V4u Blend(V4u old, V4u neu)
     }
     else
     {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+        constexpr uint32_t m0 = (Mask & 1) ? ~0u : 0u;
+        constexpr uint32_t m1 = (Mask & 2) ? ~0u : 0u;
+        constexpr uint32_t m2 = (Mask & 4) ? ~0u : 0u;
+        constexpr uint32_t m3 = (Mask & 8) ? ~0u : 0u;
+        const uint32x4_t m = {m0, m1, m2, m3};
+        return vbslq_u32(m, neu, old);
+#else
         constexpr V4u m = {(Mask & 1) ? ~0u : 0u, (Mask & 2) ? ~0u : 0u, (Mask & 4) ? ~0u : 0u, (Mask & 8) ? ~0u : 0u};
         return (neu & m) | (old & ~m);
+#endif
     }
 }
 
 // An operand as the VU reads it (vu.cpp's VuFloat): an exponent of 0 a zero of its sign, of 255 the largest float of its sign.
 // The same rule makes an FMAC result (MacUpdate's): a denormal result a zero of its sign
-inline V4u Clamp(V4u x)
+VU1_ALWAYS_INLINE V4u Clamp(V4u x)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    uint32x4_t magnitude = vandq_u32(x, vdupq_n_u32(0x7FFFFFFFu));
+    uint32x4_t sign = veorq_u32(x, magnitude);
+    magnitude = vminq_u32(magnitude, vdupq_n_u32(0x7F7FFFFFu));
+    uint32x4_t keep = vcgtq_u32(magnitude, vdupq_n_u32(0x007FFFFFu));
+    magnitude = vandq_u32(magnitude, keep);
+    return vorrq_u32(magnitude, sign);
+#else
     V4u magnitude = x & 0x7FFFFFFFu;
     V4u sign = x ^ magnitude;
     magnitude = Min(magnitude, Splat(0x7F7FFFFFu));
     magnitude &= reinterpret_cast<V4u>(magnitude > 0x007FFFFFu);
     return magnitude | sign;
+#endif
 }
 
 // An FMAC result as MacUpdate leaves it: a denormal a zero of its sign. (An exponent of 255 can't come out of arithmetic on
 // clamped operands rounded toward zero; Clamp would make it the largest float, as MacUpdate does)
-inline V4u Result(V4u raw)
+VU1_ALWAYS_INLINE V4u Result(V4u raw)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    uint32x4_t magnitude = vandq_u32(raw, vdupq_n_u32(0x7FFFFFFFu));
+    uint32x4_t keep = vorrq_u32(vcgtq_u32(magnitude, vdupq_n_u32(0x007FFFFFu)), vdupq_n_u32(0x80000000u));
+    return vandq_u32(raw, keep);
+#else
     V4u magnitude = raw & 0x7FFFFFFFu;
     V4u keep = reinterpret_cast<V4u>(magnitude > 0x007FFFFFu) | 0x80000000u;
     return raw & keep;
+#endif
 }
 
-inline u32 ClampScalar(u32 x)
+VU1_ALWAYS_INLINE u32 ClampScalar(u32 x)
 {
     switch (x & 0x7F800000)
     {
@@ -139,14 +209,27 @@ inline u32 ClampScalar(u32 x)
 }
 
 template <int Lane>
-inline V4u SplatLane(V4u v)
+VU1_ALWAYS_INLINE V4u SplatLane(V4u v)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    return vdupq_laneq_u32(v, Lane);
+#else
     return VU1_SHUFFLE(v, Lane, Lane, Lane, Lane);
+#endif
 }
 
 // MAX and MINI: the bits compared as signed magnitudes (vu.cpp's FpMax and FpMin)
-inline V4u FpMax(V4u a, V4u b)
+VU1_ALWAYS_INLINE V4u FpMax(V4u a, V4u b)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    int32x4_t sa = vreinterpretq_s32_u32(a);
+    int32x4_t sb = vreinterpretq_s32_u32(b);
+    uint32x4_t bothNegative = vcltq_s32(vandq_s32(sa, sb), vdupq_n_s32(0));
+    uint32x4_t greater = vcgtq_s32(sa, sb);
+    uint32x4_t larger = vbslq_u32(greater, a, b);
+    uint32x4_t smaller = vbslq_u32(greater, b, a);
+    return vbslq_u32(bothNegative, smaller, larger);
+#else
     V4i sa = reinterpret_cast<V4i>(a);
     V4i sb = reinterpret_cast<V4i>(b);
     V4u bothNegative = reinterpret_cast<V4u>((sa & sb) < 0);
@@ -154,10 +237,20 @@ inline V4u FpMax(V4u a, V4u b)
     V4u larger = Select(greater, a, b);
     V4u smaller = Select(greater, b, a);
     return Select(bothNegative, smaller, larger);
+#endif
 }
 
-inline V4u FpMin(V4u a, V4u b)
+VU1_ALWAYS_INLINE V4u FpMin(V4u a, V4u b)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    int32x4_t sa = vreinterpretq_s32_u32(a);
+    int32x4_t sb = vreinterpretq_s32_u32(b);
+    uint32x4_t bothNegative = vcltq_s32(vandq_s32(sa, sb), vdupq_n_s32(0));
+    uint32x4_t greater = vcgtq_s32(sa, sb);
+    uint32x4_t larger = vbslq_u32(greater, a, b);
+    uint32x4_t smaller = vbslq_u32(greater, b, a);
+    return vbslq_u32(bothNegative, larger, smaller);
+#else
     V4i sa = reinterpret_cast<V4i>(a);
     V4i sb = reinterpret_cast<V4i>(b);
     V4u bothNegative = reinterpret_cast<V4u>((sa & sb) < 0);
@@ -165,11 +258,12 @@ inline V4u FpMin(V4u a, V4u b)
     V4u larger = Select(greater, a, b);
     V4u smaller = Select(greater, b, a);
     return Select(bothNegative, larger, smaller);
+#endif
 }
 
 // ITOF: the integer to a float (rounded as the run rounds), scaled down by 2^shift
 template <u32 Shift>
-inline V4u Itof(V4u v)
+VU1_ALWAYS_INLINE V4u Itof(V4u v)
 {
     V4f f = __builtin_convertvector(reinterpret_cast<V4i>(v), V4f);
     if constexpr (Shift != 0)
@@ -182,7 +276,7 @@ inline V4u Itof(V4u v)
 
 // FTOI: the float (as it is, not clamped) scaled up by 2^shift and truncated, saturated past 2^31
 template <u32 Shift>
-inline V4u Ftoi(V4u v)
+VU1_ALWAYS_INLINE V4u Ftoi(V4u v)
 {
     V4f f = AsF(v);
     if constexpr (Shift != 0)
@@ -289,23 +383,38 @@ struct Sticky
     V4u largest = {0, 0, 0, 0};
 };
 
-inline void Accumulate(Sticky& sticky, V4u source)
+VU1_ALWAYS_INLINE void Accumulate(Sticky& sticky, V4u source)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    uint32x4_t magnitude = vandq_u32(source, vdupq_n_u32(0x7FFFFFFFu));
+    sticky.signs = vorrq_u32(sticky.signs, source);
+    sticky.smallest = vminq_u32(sticky.smallest, magnitude);
+    sticky.smallestNonzero = vminq_u32(sticky.smallestNonzero, vsubq_u32(magnitude, vdupq_n_u32(1u)));
+    sticky.largest = vmaxq_u32(sticky.largest, magnitude);
+#else
     V4u magnitude = source & 0x7FFFFFFFu;
     sticky.signs |= source;
     sticky.smallest = Min(sticky.smallest, magnitude);
     sticky.smallestNonzero = Min(sticky.smallestNonzero, magnitude - 1u);
     sticky.largest = Max(sticky.largest, magnitude);
+#endif
 }
 
 // The same for an arithmetic instruction's source, whose lanes are raw results or 1.0: no overflow can be among them
 // (arithmetic on clamped operands rounded toward zero never reaches an exponent of 255)
-inline void AccumulateResults(Sticky& sticky, V4u source)
+VU1_ALWAYS_INLINE void AccumulateResults(Sticky& sticky, V4u source)
 {
+#if defined(__aarch64__) || defined(__ARM_NEON)
+    uint32x4_t magnitude = vandq_u32(source, vdupq_n_u32(0x7FFFFFFFu));
+    sticky.signs = vorrq_u32(sticky.signs, source);
+    sticky.smallest = vminq_u32(sticky.smallest, magnitude);
+    sticky.smallestNonzero = vminq_u32(sticky.smallestNonzero, vsubq_u32(magnitude, vdupq_n_u32(1u)));
+#else
     V4u magnitude = source & 0x7FFFFFFFu;
     sticky.signs |= source;
     sticky.smallest = Min(sticky.smallest, magnitude);
     sticky.smallestNonzero = Min(sticky.smallestNonzero, magnitude - 1u);
+#endif
 }
 
 inline u32 StickyLow(const Sticky& sticky)

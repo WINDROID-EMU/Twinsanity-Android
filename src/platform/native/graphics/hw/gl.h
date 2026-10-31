@@ -28,8 +28,9 @@ constexpr GLenum GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXT
                  GL_TEXTURE_MAX_LEVEL = 0x813D, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_RED = 0x1903, GL_R32F = 0x822E,
                  GL_UNSIGNED_BYTE = 0x1401, GL_FLOAT = 0x1406, GL_UNSIGNED_INT = 0x1405, GL_DEPTH_STENCIL = 0x84F9,
                  GL_DEPTH_COMPONENT = 0x1902, GL_DEPTH32F_STENCIL8 = 0x8CAD, GL_FLOAT_32_UNSIGNED_INT_24_8_REV = 0x8DAD,
+                 GL_DEPTH24_STENCIL8 = 0x88F0, GL_UNSIGNED_INT_24_8 = 0x84FA,
                  GL_FRAMEBUFFER = 0x8D40, GL_READ_FRAMEBUFFER = 0x8CA8, GL_DRAW_FRAMEBUFFER = 0x8CA9,
-                 GL_COLOR_ATTACHMENT0 = 0x8CE0, GL_DEPTH_STENCIL_ATTACHMENT = 0x821A, GL_FRAMEBUFFER_COMPLETE = 0x8CD5,
+                 GL_COLOR_ATTACHMENT0 = 0x8CE0, GL_DEPTH_STENCIL_ATTACHMENT = 0x821A, GL_DEPTH_ATTACHMENT = 0x8D00, GL_STENCIL_ATTACHMENT = 0x8D20, GL_FRAMEBUFFER_COMPLETE = 0x8CD5,
                  GL_COLOR_BUFFER_BIT = 0x4000, GL_DEPTH_BUFFER_BIT = 0x100, GL_STENCIL_BUFFER_BIT = 0x400, GL_NONE = 0,
                  GL_BLEND = 0x0BE2, GL_DEPTH_TEST = 0x0B71, GL_SCISSOR_TEST = 0x0C11, GL_STENCIL_TEST = 0x0B90,
                  GL_CULL_FACE = 0x0B44, GL_PROGRAM_POINT_SIZE = 0x8642, GL_FUNC_ADD = 0x8006, GL_FUNC_SUBTRACT = 0x800A,
@@ -55,6 +56,7 @@ struct Gl
     void (*GenFramebuffers)(GLsizei, GLuint*);
     void (*DeleteFramebuffers)(GLsizei, const GLuint*);
     void (*BindFramebuffer)(GLenum, GLuint);
+    void (*InvalidateFramebuffer)(GLenum, GLsizei, const GLenum*);
     void (*FramebufferTexture2D)(GLenum, GLenum, GLenum, GLuint, GLint);
     GLenum (*CheckFramebufferStatus)(GLenum);
     void (*BlitFramebuffer)(GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum);

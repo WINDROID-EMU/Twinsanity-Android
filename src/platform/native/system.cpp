@@ -532,8 +532,13 @@ void Platform::System::Initialise()
         }
 
         const NativeUi::Resolution defaults = NativeUi::DefaultResolution();
+#if defined(__ANDROID__)
+        SDL_Window* window = SDL_CreateWindow("Crash Twinsanity", defaults.windowWidth, defaults.windowHeight,
+                                              SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+#else
         SDL_Window* window = SDL_CreateWindow("Crash Twinsanity", defaults.windowWidth, defaults.windowHeight,
                                               SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+#endif
         if (window == nullptr)
         {
             Native::Fatal("the window couldn't be made: %s", SDL_GetError());

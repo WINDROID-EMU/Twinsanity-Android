@@ -170,14 +170,16 @@ public:
     void Rget(u32 dest, u32 ft);
 
 private:
-    using Binary = u32 (*)(u32, u32);
-    using Ternary = u32 (*)(u32, u32, u32);
     u32 MacField(u32 field, u32 value);
     void ClearMacField(u32 field);
-    void Apply(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Binary op);
-    void ApplyBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Binary op);
-    void ApplyAcc(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Ternary op);
-    void ApplyAccBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Ternary op);
+    template <typename Op>
+    void Apply(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Op op);
+    template <typename Op>
+    void ApplyBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Op op);
+    template <typename Op>
+    void ApplyAcc(u32 dest, Vf* out, const Vf& fs, const Vf& ft, Op op);
+    template <typename Op>
+    void ApplyAccBroadcast(u32 dest, Vf* out, const Vf& fs, u32 bc, Op op);
     Vf* Out(u32 fd);
     // Where writes to vf00 go
     Vf discard_;

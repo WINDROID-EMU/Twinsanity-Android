@@ -31,22 +31,24 @@
 
 namespace NativeMath::VuFloat
 {
+#define VU_FLOAT_INLINE inline __attribute__((always_inline))
+
 constexpr u32 SignBit = 0x80000000u;
 constexpr u32 ExponentMask = 0x7F800000u;
 constexpr u32 MaxMagnitude = 0x7F7FFFFFu;
 
-inline f32 AsFloat(u32 bits)
+VU_FLOAT_INLINE f32 AsFloat(u32 bits)
 {
     return std::bit_cast<f32>(bits);
 }
 
-inline u32 AsBits(f32 value)
+VU_FLOAT_INLINE u32 AsBits(f32 value)
 {
     return std::bit_cast<u32>(value);
 }
 
 // An operand as PCSX2 reads it: denormals zero, infinities and NaNs the largest float of their sign
-inline u32 Operand(u32 bits)
+VU_FLOAT_INLINE u32 Operand(u32 bits)
 {
     u32 exponent = bits & ExponentMask;
     if (exponent == 0)
@@ -67,7 +69,7 @@ inline u32 Operand(u32 bits)
 // A double (finite) rounded towards zero to a float, below the smallest normal float a zero of its sign. Exact when the
 // double is the exact value, or when the exact value is within half a double's unit of it and no float lies between (the
 // callers make sure of that)
-inline u32 TruncateToFloat(double value)
+VU_FLOAT_INLINE u32 TruncateToFloat(double value)
 {
     f32 nearest = static_cast<f32>(value);
     if (std::fabs(static_cast<double>(nearest)) > std::fabs(value))
@@ -87,13 +89,13 @@ inline u32 TruncateToFloat(double value)
 }
 
 // The float one unit further from zero (its magnitude's bits one more)
-inline u32 NextAway(u32 bits)
+VU_FLOAT_INLINE u32 NextAway(u32 bits)
 {
     return bits + 1;
 }
 
 // a + b of two operands (Operand's): the double sum and its exact error (TwoSum), rounded towards zero
-inline u32 AddOperands(u32 a, u32 b)
+VU_FLOAT_INLINE u32 AddOperands(u32 a, u32 b)
 {
     double x = AsFloat(a);
     double y = AsFloat(b);
@@ -127,36 +129,36 @@ inline u32 AddOperands(u32 a, u32 b)
     return TruncateToFloat(sum);
 }
 
-inline u32 Add(u32 a, u32 b)
+VU_FLOAT_INLINE u32 Add(u32 a, u32 b)
 {
     return AddOperands(Operand(a), Operand(b));
 }
 
-inline u32 Sub(u32 a, u32 b)
+VU_FLOAT_INLINE u32 Sub(u32 a, u32 b)
 {
     return AddOperands(Operand(a), Operand(b) ^ SignBit);
 }
 
-inline u32 MultiplyOperands(u32 a, u32 b)
+VU_FLOAT_INLINE u32 MultiplyOperands(u32 a, u32 b)
 {
     // Two floats' product is exact in double precision
     double product = static_cast<double>(AsFloat(a)) * static_cast<double>(AsFloat(b));
     return TruncateToFloat(product);
 }
 
-inline u32 Mul(u32 a, u32 b)
+VU_FLOAT_INLINE u32 Mul(u32 a, u32 b)
 {
     return MultiplyOperands(Operand(a), Operand(b));
 }
 
 // acc + a · b and acc - a · b: the product rounded, then the sum. PCSX2 reads the product as it came out of the
 // multiplication (no clamp: rounding towards zero gives none to clamp)
-inline u32 MulAdd(u32 acc, u32 a, u32 b)
+VU_FLOAT_INLINE u32 MulAdd(u32 acc, u32 a, u32 b)
 {
     return AddOperands(Operand(acc), MultiplyOperands(Operand(a), Operand(b)));
 }
 
-inline u32 MulSub(u32 acc, u32 a, u32 b)
+VU_FLOAT_INLINE u32 MulSub(u32 acc, u32 a, u32 b)
 {
     return AddOperands(Operand(acc), MultiplyOperands(Operand(a), Operand(b)) ^ SignBit);
 }

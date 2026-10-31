@@ -600,7 +600,7 @@ void ReadBindings(const bool* keys, SDL_Gamepad* gamepad, BoundPad* pad)
     // deflection: the mouse's push past it is the camera's turn's boost
     f32 mouseX = 0.0f;
     f32 mouseY = 0.0f;
-    if (playing && MouseLookStick(&mouseX, &mouseY))
+    if (playing && IsOn(OptionMouseLook) && MouseLookStick(&mouseX, &mouseY))
     {
         keyboardUsed = true;
         mouseX = IsOn(OptionInvertCameraX) ? -mouseX : mouseX;

@@ -61,7 +61,11 @@ constexpr OptionInfo Infos[OptionCount] = {
     {OptionStickDeadZone, "stick_dead_zone", 0, 10},
     {OptionMuteInactive, "mute_in_background", 1, 1},
     {OptionUltrawide, "ultrawide", 1, 1},
+#if defined(__ANDROID__)
+    {OptionMouseLook, "mouse_look", 0, 1},
+#else
     {OptionMouseLook, "mouse_look", 1, 1},
+#endif
     {OptionMouseSensitivity, "mouse_sensitivity", 5, 10},
     {OptionInvertMouseY, "invert_mouse_y", 0, 1},
     {OptionLanguage, "language", 0, 5},
@@ -124,6 +128,12 @@ void Read()
             }
         }
     }
+
+#if defined(__ANDROID__)
+    // On Android, controllers and touch are used rather than desktop mouse look.
+    // Force mouse_look to 0 so existing options.txt files or defaults cannot hijack the camera.
+    g_Values[OptionMouseLook] = 0;
+#endif
 }
 
 void Save()
